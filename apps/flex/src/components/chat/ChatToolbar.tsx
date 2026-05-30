@@ -1,17 +1,32 @@
-import { Check, Copy, Download, FileJson, Share2 } from 'lucide-react';
+import { Check, Copy, Download, FileJson, Plus, Share2 } from 'lucide-react';
 import { useState } from 'react';
 import { copyMarkdownToClipboard, downloadMarkdown } from '../../lib/chat/exportMarkdown';
+import { downloadChatAsPdf } from '../../lib/chat/exportPdf';
 import { shareChat } from '../../lib/chat/shareChat';
 import type { ChatSession } from '../../types/chat';
 
 interface ChatToolbarProps {
   session: ChatSession | null;
+  onNewChat?: () => void;
 }
 
-export function ChatToolbar({ session }: ChatToolbarProps) {
+export function ChatToolbar({ session, onNewChat }: ChatToolbarProps) {
   const [toast, setToast] = useState<string | null>(null);
 
-  if (!session || session.messages.length === 0) return null;
+  if (!session || session.messages.length === 0) {
+    if (!onNewChat) return null;
+    return (
+      <button
+        type="button"
+        onClick={onNewChat}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-flex-accent border border-flex-accent/30 hover:bg-flex-accent/10 transition-colors"
+        title="Start a new chat"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">New chat</span>
+      </button>
+    );
+  }
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -26,6 +41,17 @@ export function ChatToolbar({ session }: ChatToolbarProps) {
           {toast}
         </span>
       )}
+      {onNewChat && (
+        <button
+          type="button"
+          onClick={onNewChat}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-flex-accent border border-flex-accent/30 hover:bg-flex-accent/10 transition-colors"
+          title="Start a new chat"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">New</span>
+        </button>
+      )}
       <button
         type="button"
         onClick={() => {
@@ -36,7 +62,19 @@ export function ChatToolbar({ session }: ChatToolbarProps) {
         title="Download chat as Markdown"
       >
         <Download className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Download</span>
+        <span className="hidden sm:inline">MD</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          const ok = downloadChatAsPdf(session);
+          flash(ok ? 'Opened print for PDF' : 'Popup blocked');
+        }}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-flex-muted hover:text-flex-accent hover:bg-flex-accent/10 transition-colors"
+        title="Download chat as PDF"
+      >
+        <Download className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">PDF</span>
       </button>
       <button
         type="button"
@@ -73,7 +111,10 @@ export function ChatToolbar({ session }: ChatToolbarProps) {
       <button
         type="button"
         onClick={async () => {
-          const result = await shareChat(session);
+          const url = `${window.location.origin}${window.location.pathname}?chat=${encodeURIComponent(
+            session.id
+          )}`;
+          const result = await shareChat(session, url);
           if (result === 'shared') flash('Shared');
           else if (result === 'copied') flash('Copied for sharing');
           else flash('Share unavailable');

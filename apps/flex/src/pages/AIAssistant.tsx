@@ -1,10 +1,14 @@
 import {
   Database,
+  Download,
   MessageSquare,
   PanelLeft,
   Pin,
   Plus,
+  Share2,
   Sparkles,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   X,
 } from 'lucide-react';
@@ -17,6 +21,8 @@ import { ChatToolbar } from '../components/chat/ChatToolbar';
 import { ScrollToBottom } from '../components/chat/ScrollToBottom';
 import { SessionSearch } from '../components/chat/SessionSearch';
 import { SuggestedPrompts } from '../components/chat/SuggestedPrompts';
+import { downloadChatAsPdf } from '../lib/chat/exportPdf';
+import { shareChat } from '../lib/chat/shareChat';
 import { filterSessions } from '../lib/chat/sessionUtils';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useRagChat } from '../hooks/useRagChat';
@@ -47,10 +53,12 @@ export function AIAssistant() {
 
   const location = useLocation();
   const aiQueryHandled = useRef(false);
+  const linkedChatHandled = useRef(false);
 
   const { isMobile, isTablet } = useBreakpoint();
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [sessionQuery, setSessionQuery] = useState('');
+  const [quickToast, setQuickToast] = useState<string | null>(null);
   const filteredSessions = useMemo(
     () => filterSessions(sessions, sessionQuery),
     [sessions, sessionQuery]
@@ -58,6 +66,12 @@ export function AIAssistant() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isEmpty = messages.length === 0;
   const showSidebar = !isMobile;
+  const hasExportableChat = !!activeSession && activeSession.messages.length > 0;
+
+  const flash = (msg: string) => {
+    setQuickToast(msg);
+    window.setTimeout(() => setQuickToast(null), 2200);
+  };
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -76,6 +90,15 @@ export function AIAssistant() {
     void sendMessage(aiQuery);
     window.history.replaceState({}, document.title);
   }, [location.state, isProcessing, sendMessage]);
+
+  useEffect(() => {
+    if (linkedChatHandled.current) return;
+    const params = new URLSearchParams(location.search);
+    const linkedChatId = params.get('chat');
+    if (!linkedChatId || !sessions.some((s) => s.id === linkedChatId)) return;
+    linkedChatHandled.current = true;
+    selectSession(linkedChatId);
+  }, [location.search, selectSession, sessions]);
 
   const sessionList = (
     <>
@@ -248,7 +271,7 @@ export function AIAssistant() {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <ChatToolbar session={activeSession} />
+            <ChatToolbar session={activeSession} onNewChat={startNewChat} />
             <ChatMoreMenu
               session={activeSession}
               isProcessing={isProcessing}
@@ -259,14 +282,6 @@ export function AIAssistant() {
               onDuplicate={() => activeSessionId && duplicateSession(activeSessionId)}
               onTogglePin={() => activeSessionId && togglePinSession(activeSessionId)}
             />
-            <button
-              type="button"
-              onClick={startNewChat}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm text-flex-accent border border-flex-accent/30 hover:bg-flex-accent/10"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden min-[400px]:inline">New</span>
-            </button>
           </div>
         </header>
 
@@ -325,9 +340,85 @@ export function AIAssistant() {
 
         <div className="shrink-0 px-3 sm:px-6 pb-4 sm:pb-6 pt-2 border-t border-flex-border/30 bg-flex-bg/80 backdrop-blur-sm">
           <div className="max-w-3xl mx-auto w-full">
-            {!isEmpty && activeSession && (
-              <p className="text-[10px] text-flex-muted mb-2 truncate">{activeSession.title}</p>
-            )}
+            <div className="mb-2 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-[10px] text-flex-muted truncate">
+                  {activeSession?.title ?? 'Start a chat to enable export and sharing'}
+                </p>
+                {quickToast && <span className="text-[10px] text-flex-success">{quickToast}</span>}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={startNewChat}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] text-flex-accent border border-flex-accent/30 hover:bg-flex-accent/10"
+                >
+                  New chat
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasExportableChat}
+                  onClick={() => {
+                    if (!activeSession) return;
+                    const ok = downloadChatAsPdf(activeSession);
+                    flash(ok ? 'Print dialog opened' : 'Popup blocked');
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-flex-muted border border-flex-border/60 hover:text-flex-accent hover:border-flex-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download PDF
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasExportableChat}
+                  onClick={async () => {
+                    if (!activeSession) return;
+                    const url = `${window.location.origin}${window.location.pathname}?chat=${encodeURIComponent(
+                      activeSession.id
+                    )}`;
+                    const result = await shareChat(activeSession, url);
+                    flash(
+                      result === 'shared'
+                        ? 'Shared'
+                        : result === 'copied'
+                          ? 'Copied for sharing'
+                          : 'Share unavailable'
+                    );
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-flex-muted border border-flex-border/60 hover:text-flex-accent hover:border-flex-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  Share
+                </button>
+                {lastAssistantMessageId && (
+                  <>
+                    <span className="text-[10px] text-flex-muted ml-1">Feedback</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessageFeedback(lastAssistantMessageId, 'up');
+                        flash('Thanks for the feedback');
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-flex-muted hover:text-flex-success hover:bg-flex-success/10"
+                    >
+                      <ThumbsUp className="w-3 h-3" />
+                      Helpful
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessageFeedback(lastAssistantMessageId, 'down');
+                        flash('Feedback saved');
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-flex-muted hover:text-flex-danger hover:bg-flex-danger/10"
+                    >
+                      <ThumbsDown className="w-3 h-3" />
+                      Needs work
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
             <ChatComposer
               onSend={sendMessage}
               onStop={stopStreaming}

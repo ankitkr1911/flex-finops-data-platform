@@ -50,7 +50,7 @@ export async function syncStateToApi(state: FlexState): Promise<boolean> {
 
 function stripApiMeta(raw: Record<string, unknown>): FlexState {
   const { _stateRevision: _r, ...rest } = raw;
-  return rest as FlexState;
+  return rest as unknown as FlexState;
 }
 
 export async function pullStateFromApi(): Promise<FlexState | null> {
@@ -85,7 +85,13 @@ export function subscribeToApiStateChanges(onChange: () => void): () => void {
   let disposed = false;
 
   const notifyIfNew = (revision: number) => {
-    if (lastRevision !== null && revision !== lastRevision) onChange();
+    // If API came online after app boot, trigger an initial pull once.
+    if (lastRevision === null) {
+      lastRevision = revision;
+      onChange();
+      return;
+    }
+    if (revision !== lastRevision) onChange();
     lastRevision = revision;
   };
 
@@ -162,11 +168,21 @@ export function mergeApiStateIntoFlex(local: FlexState, api: FlexState): FlexSta
     ...local.transferLog,
   ].slice(0, 80);
 
-  const connectedApps = local.connectedApps.map((ca) => {
-    const fromApi = api.connectedApps?.find((x) => x.id === ca.id);
-    if (!fromApi) return ca;
-    return new Date(fromApi.lastSync) > new Date(ca.lastSync) ? fromApi : ca;
-  });
+  const localConnected = local.connectedApps ?? [];
+  const apiConnected = api.connectedApps ?? [];
+  const connectedMap = new Map(localConnected.map((ca) => [ca.id, ca]));
+  for (const fromApi of apiConnected) {
+    const prev = connectedMap.get(fromApi.id);
+    if (!prev) {
+      connectedMap.set(fromApi.id, fromApi);
+      continue;
+    }
+    connectedMap.set(
+      fromApi.id,
+      new Date(fromApi.lastSync) > new Date(prev.lastSync) ? fromApi : prev
+    );
+  }
+  const connectedApps = [...connectedMap.values()];
 
   const resourceMap = new Map(local.resourceAllocations.map((r) => [r.id, r]));
   for (const r of api.resourceAllocations ?? []) {

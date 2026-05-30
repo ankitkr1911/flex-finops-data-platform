@@ -41,6 +41,10 @@ export interface PartnerRuntimeConfig {
   marketplaceUrl: string;
 }
 
+function runtimePrefsKey(appId: PartnerAppId): string {
+  return `flex_partner_runtime_prefs_v1:${appId}`;
+}
+
 function isEmbedMode(): boolean {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).get('embed') === '1';
@@ -60,11 +64,27 @@ export function PartnerRuntimeApp({
     [appId, apiUrl]
   );
 
-  const [tab, setTab] = useState<PartnerTab>('workspace');
+  const savedPrefs = (() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(runtimePrefsKey(appId));
+      return raw ? (JSON.parse(raw) as { tab?: PartnerTab; search?: string; flow?: DataFlowFilter }) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const [tab, setTab] = useState<PartnerTab>(
+    savedPrefs?.tab === 'installed' ? savedPrefs.tab : 'workspace'
+  );
   const [published, setPublished] = useState<PluginListing[]>([]);
   const [installed, setInstalled] = useState<string[]>([]);
-  const [search, setSearch] = useState('');
-  const [flowFilter, setFlowFilter] = useState<DataFlowFilter>('all');
+  const [search, setSearch] = useState(savedPrefs?.search ?? '');
+  const [flowFilter, setFlowFilter] = useState<DataFlowFilter>(
+    savedPrefs?.flow === 'send' || savedPrefs?.flow === 'read' || savedPrefs?.flow === 'both'
+      ? savedPrefs.flow
+      : 'all'
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -79,6 +99,17 @@ export function PartnerRuntimeApp({
   useEffect(() => {
     saveImports(appId, imports);
   }, [appId, imports]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        runtimePrefsKey(appId),
+        JSON.stringify({ tab, search, flow: flowFilter })
+      );
+    } catch {
+      // best-effort preference persistence
+    }
+  }, [appId, tab, search, flowFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,9 +192,10 @@ export function PartnerRuntimeApp({
   });
 
   const flowCounts = useMemo(() => {
-    const count = (f: DataFlowFilter) => searched.filter((p) => matchesDataFlowFilter(p, f)).length;
+    const base = searched;
+    const count = (f: DataFlowFilter) => base.filter((p) => matchesDataFlowFilter(p, f)).length;
     return {
-      all: searched.length,
+      all: base.length,
       send: count('send'),
       read: count('read'),
       both: count('both'),
@@ -248,6 +280,21 @@ export function PartnerRuntimeApp({
     }
   };
 
+  const uninstallPlugin = async (pluginId: string) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const next = await client.uninstallPublishedPlugin(pluginId);
+      setInstalled(next);
+      setMessage(`Removed ${pluginDisplayName(pluginId)} from ${appName}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Uninstall failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const selectedImport = imports.find((i) => i.id === selectedImportId) ?? imports[0];
 
   const workspacePlans = selectedImport
@@ -324,7 +371,7 @@ export function PartnerRuntimeApp({
   const titleByTab: Record<PartnerTab, string> = {
     workspace: `${appName} data workspace`,
     installed: `Installed in ${appName}`,
-    all: `Install into ${appName}`,
+    all: `Installed in ${appName}`,
   };
 
   const subtitleByTab: Record<PartnerTab, string> = {
@@ -332,7 +379,7 @@ export function PartnerRuntimeApp({
       'Pull data from Flex, explore in Read mode, then switch to Edit & send when you need to push changes.',
     installed:
       'Read imports data below. Send pushes governed payloads back to Flex (see “Read & send” plugins).',
-    all: '',
+    all: 'Install plugins from Marketplace, then use Installed to run read/send actions.',
   };
 
   return (
@@ -350,6 +397,7 @@ export function PartnerRuntimeApp({
       stats={[
         { label: 'Workspace feeds', value: imports.length },
         { label: 'Installed', value: installed.length },
+        { label: 'Published', value: published.length },
         { label: 'Partner id', value: partner },
       ]}
       title={titleByTab[tab]}
@@ -484,6 +532,7 @@ export function PartnerRuntimeApp({
               installed
               busy={busy}
               mode="runtime"
+              onUninstall={() => void uninstallPlugin(plugin.pluginId)}
               onRead={(dataset) => void runRead(plugin.pluginId, dataset)}
               onSend={(dataset) => setSendTarget({ plugin, dataset })}
             />

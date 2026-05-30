@@ -128,6 +128,15 @@ function receivePartnerInbound(state, row) {
     status: 'pending',
     recordCount,
     purpose: row.purpose ?? `Inbound from ${appLabel}`,
+    changeSummary:
+      typeof row.changeSummary === 'string'
+        ? row.changeSummary
+        : `${recordCount} record(s)`,
+    changePayload:
+      row.changePayload ??
+      row.change ??
+      row.details ??
+      (Array.isArray(row.records) ? row.records : undefined),
   };
   state.dataRequests = [created, ...(state.dataRequests ?? [])];
   const pending = (state.dataRequests ?? []).filter((r) => r.status === 'pending').length;
@@ -184,6 +193,17 @@ function touchPartnerSync(state, partner, message, dataset = 'partner_update') {
     }),
     ...(state.transferLog ?? []),
   ].slice(0, 80);
+}
+
+function queuePartnerRequest(state, sourceApp, dataset, recordCount, purpose) {
+  const partner = normalizePartnerId(sourceApp);
+  if (partner !== 'eztrac' && partner !== 'dhub-rpt') return;
+  receivePartnerInbound(state, {
+    fromApp: partner,
+    dataset,
+    recordCount,
+    purpose,
+  });
 }
 
 function applyAllocationMatrix(state, rows) {
@@ -465,7 +485,7 @@ export function produce(state, req) {
   const row = rows[0] ?? {};
 
   if (pluginId === 'flex.governance' && dataset === 'inbound_request') {
-    const created = receivePartnerInbound(state, row);
+    const created = receivePartnerInbound(state, { ...row, records: rows });
     return {
       ok: true,
       pluginId,
@@ -494,6 +514,7 @@ export function produce(state, req) {
     const partner = pluginId === 'flex.partner.eztrac' ? 'eztrac' : 'dhub-rpt';
     const created = receivePartnerInbound(state, {
       ...row,
+      records: rows,
       fromApp: normalizePartnerId(row.fromApp ?? sourceApp ?? partner),
     });
     return {
@@ -573,6 +594,19 @@ export function produce(state, req) {
       deltaPercent: Number(input.deltaPercent) || 0,
     };
     state.anomalies = [created, ...(state.anomalies ?? [])];
+    touchPartnerSync(
+      state,
+      sourceApp ?? 'eztrac',
+      `created anomaly ${created.id}`,
+      'anomaly_events'
+    );
+    queuePartnerRequest(
+      state,
+      sourceApp ?? 'eztrac',
+      'anomaly_events',
+      1,
+      `Partner submitted anomaly ${created.id} to Flex`
+    );
     return {
       ok: true,
       pluginId,
@@ -589,6 +623,13 @@ export function produce(state, req) {
       a.id === id ? { ...a, status: 'resolved' } : a
     );
     touchPartnerSync(state, sourceApp ?? 'eztrac', `resolved anomaly ${id}`, 'anomaly_events');
+    queuePartnerRequest(
+      state,
+      sourceApp ?? 'eztrac',
+      'anomaly_events',
+      1,
+      `Partner requested resolve for anomaly ${id}`
+    );
     return { ok: true, pluginId, dataset, message: `Anomaly ${id} resolved`, affectedIds: [id] };
   }
 
@@ -608,6 +649,13 @@ export function produce(state, req) {
     };
     state.anomalies = (state.anomalies ?? []).map((a) => (a.id === id ? updated : a));
     touchPartnerSync(state, sourceApp ?? 'eztrac', `updated anomaly ${id}`, 'anomaly_events');
+    queuePartnerRequest(
+      state,
+      sourceApp ?? 'eztrac',
+      'anomaly_events',
+      1,
+      `Partner updated anomaly ${id}`
+    );
     return { ok: true, pluginId, dataset, message: `Anomaly ${id} updated`, affectedIds: [id] };
   }
 
@@ -627,6 +675,14 @@ export function produce(state, req) {
             monthlySpend: row.monthlySpend != null ? Number(row.monthlySpend) : c.monthlySpend,
           }
         : c
+    );
+    touchPartnerSync(state, sourceApp ?? 'eztrac', `updated chargeback budget ${id}`, 'team_showback');
+    queuePartnerRequest(
+      state,
+      sourceApp ?? 'eztrac',
+      'team_showback',
+      1,
+      `Partner updated chargeback budget for ${id}`
     );
     return {
       ok: true,
@@ -669,6 +725,13 @@ export function produce(state, req) {
   }
 
   if (pluginId === 'flex.optimization' && dataset === 'advance_stage') {
+    queuePartnerRequest(
+      state,
+      sourceApp ?? 'eztrac',
+      'savings_opportunities',
+      1,
+      `Partner advanced optimization stage for ${row.id ?? 'opportunity'}`
+    );
     return {
       ok: true,
       pluginId,
@@ -683,10 +746,24 @@ export function produce(state, req) {
     if (!id) return { ok: false, error: 'records[0].id required' };
     if (!state.resolvedAlignmentIds) state.resolvedAlignmentIds = [];
     if (!state.resolvedAlignmentIds.includes(id)) state.resolvedAlignmentIds.push(id);
+    queuePartnerRequest(
+      state,
+      sourceApp ?? 'dhub-rpt',
+      'alignment_rows',
+      1,
+      `Partner resolved alignment conflict ${id}`
+    );
     return { ok: true, pluginId, dataset, message: `Alignment row ${id} resolved`, affectedIds: [id] };
   }
 
   if (pluginId === 'flex.workforce' && dataset === 'acknowledge_signal') {
+    queuePartnerRequest(
+      state,
+      sourceApp ?? 'dhub-rpt',
+      'squad_matrix',
+      1,
+      `Partner acknowledged workforce signal ${row.id ?? ''}`.trim()
+    );
     return {
       ok: true,
       pluginId,

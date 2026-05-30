@@ -71,6 +71,7 @@ export interface PublishedPartnerPlugin {
   permissions?: string[];
   kind?: 'core' | 'extension';
   datasets?: unknown[];
+  enabled?: boolean;
   publishedAt: string;
 }
 
@@ -330,7 +331,9 @@ export class PartnerPluginClient {
 
   async listPublishedPlugins(): Promise<PublishedPartnerPlugin[]> {
     const apiUrl = this.getApiUrl();
-    const res = await fetch(`${apiUrl}/api/v1/partner-marketplace?app=${this.appId}`);
+    const res = await fetch(
+      `${apiUrl}/api/v1/partner-marketplace?app=${this.appId}&includeDisabled=1`
+    );
     if (!res.ok) throw new Error(`Marketplace fetch failed (${res.status})`);
     return (await res.json()) as PublishedPartnerPlugin[];
   }

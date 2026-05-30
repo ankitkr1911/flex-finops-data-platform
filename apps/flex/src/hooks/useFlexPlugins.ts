@@ -19,6 +19,7 @@ export function useFlexPlugins() {
           transferLog: flex.transferLog,
           savings: flex.savings,
           chargeback: flex.chargeback,
+          resourceAllocations: flex.resourceAllocations,
           tagRules: flex.tagRules,
           workforce: flex.workforce,
           connectedApps: flex.connectedApps,

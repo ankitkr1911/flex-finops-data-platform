@@ -365,12 +365,17 @@ app.delete('/api/v1/apps/:appId/installations/:pluginId', (req, res) => {
 
 app.get('/api/v1/partner-marketplace', (req, res) => {
   const appId = normalizePartnerAppId(req.query.app);
+  const includeDisabled = String(req.query.includeDisabled ?? '') === '1';
   if (!appId) {
     res.status(400).json({ ok: false, error: 'query param app is required' });
     return;
   }
   res.json(
-    publishedPlugins().filter((row) => normalizePartnerAppId(row.targetApp) === appId)
+    publishedPlugins().filter((row) => {
+      if (normalizePartnerAppId(row.targetApp) !== appId) return false;
+      if (includeDisabled) return true;
+      return row.enabled !== false;
+    })
   );
 });
 
@@ -418,13 +423,41 @@ app.post('/api/v1/partner-marketplace/publish', (req, res) => {
     kind,
     permissions,
     datasets,
+    enabled: body.enabled === false ? false : true,
     publishedAt: new Date().toISOString(),
   };
   nextPublished.push(plugin);
   state.partnerMarketplacePublished = nextPublished;
 
+  bumpStateRevision();
   saveState();
   res.json({ ok: true, plugin, message: 'Plugin published to partner marketplace' });
+});
+
+app.post('/api/v1/partner-marketplace/toggle', (req, res) => {
+  const appId = normalizePartnerAppId(req.body?.targetApp);
+  const pluginId = String(req.body?.pluginId ?? '').trim();
+  const enabled = Boolean(req.body?.enabled);
+  if (!appId || !pluginId) {
+    res.status(400).json({ ok: false, error: 'targetApp and pluginId are required' });
+    return;
+  }
+
+  const published = publishedPlugins();
+  const idx = published.findIndex(
+    (row) => row.pluginId === pluginId && normalizePartnerAppId(row.targetApp) === appId
+  );
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: 'Plugin is not published to this partner marketplace' });
+    return;
+  }
+
+  const plugin = { ...published[idx], enabled };
+  published[idx] = plugin;
+  state.partnerMarketplacePublished = published;
+  bumpStateRevision();
+  saveState();
+  res.json({ ok: true, plugin, message: enabled ? 'Plugin enabled' : 'Plugin disabled' });
 });
 
 app.post('/api/v1/partner-marketplace/install', (req, res) => {

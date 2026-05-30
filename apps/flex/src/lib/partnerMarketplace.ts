@@ -17,6 +17,7 @@ export interface PublishedPartnerPlugin {
   permissions?: string[];
   kind?: 'core' | 'extension';
   datasets?: PluginDataset[];
+  enabled?: boolean;
   publishedAt: string;
 }
 
@@ -46,10 +47,14 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
   return json;
 }
 
-export function listPublishedPartnerPlugins(partner: PartnerId): Promise<PublishedPartnerPlugin[]> {
+export function listPublishedPartnerPlugins(
+  partner: PartnerId,
+  options?: { includeDisabled?: boolean }
+): Promise<PublishedPartnerPlugin[]> {
   const app = partnerToMarketplaceApp(partner);
+  const includeDisabled = options?.includeDisabled ? '&includeDisabled=1' : '';
   return readJson<PublishedPartnerPlugin[]>(
-    `/api/v1/partner-marketplace?app=${encodeURIComponent(app)}`
+    `/api/v1/partner-marketplace?app=${encodeURIComponent(app)}${includeDisabled}`
   );
 }
 
@@ -79,6 +84,22 @@ export async function publishPartnerPlugin(input: PartnerMarketplacePublishInput
         kind: input.plugin.kind,
         datasets: input.plugin.datasets,
       }),
+    }
+  );
+  return result.plugin;
+}
+
+export async function setPublishedPartnerPluginEnabled(
+  targetApp: PartnerMarketplaceAppId,
+  pluginId: string,
+  enabled: boolean
+): Promise<PublishedPartnerPlugin> {
+  const result = await readJson<{ ok: boolean; plugin: PublishedPartnerPlugin }>(
+    '/api/v1/partner-marketplace/toggle',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetApp, pluginId, enabled }),
     }
   );
   return result.plugin;

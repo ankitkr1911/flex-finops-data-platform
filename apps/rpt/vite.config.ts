@@ -5,4 +5,9 @@ import { flexApiDevProxy } from '../../scripts/vite-flex-api-proxy';
 export default defineConfig({
   plugins: [react()],
   server: flexApiDevProxy(),
+  base: './',
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
 });

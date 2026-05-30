@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -13,7 +13,9 @@ import { useFlexPlugins } from '../hooks/useFlexPlugins';
 import { useInstalledExtensions } from '../hooks/useInstalledExtensions';
 import {
   partnerDisplayName,
+  listPublishedPartnerPlugins,
   publishPartnerPlugin,
+  setPublishedPartnerPluginEnabled,
   type PartnerMarketplaceAppId,
 } from '../lib/partnerMarketplace';
 import type { PluginCatalogEntry, PluginDataset } from '../plugins/types';
@@ -42,6 +44,9 @@ export function Plugins() {
   const [target, setTarget] = useState<PublishTarget>('all');
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [publishedByTarget, setPublishedByTarget] = useState<
+    Record<PartnerMarketplaceAppId, Map<string, { enabled: boolean }>>
+  >({ eztrac: new Map(), rpt: new Map() });
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,9 +87,42 @@ export function Plugins() {
           permissions: listing?.permissions,
         });
       }
+      await reloadPublished();
       setMessage(`${plugin.name} published to ${targetLabel(target)}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Publish failed');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const reloadPublished = async () => {
+    const [eztrac, rpt] = await Promise.all([
+      listPublishedPartnerPlugins('eztrac', { includeDisabled: true }),
+      listPublishedPartnerPlugins('dhub-rpt', { includeDisabled: true }),
+    ]);
+    const toMap = (rows: { pluginId: string; enabled?: boolean }[]) =>
+      new Map(rows.map((r) => [r.pluginId, { enabled: r.enabled !== false }]));
+    setPublishedByTarget({
+      eztrac: toMap(eztrac),
+      rpt: toMap(rpt),
+    });
+  };
+
+  const toggleEnabled = async (plugin: PluginCatalogEntry, enabled: boolean) => {
+    setBusyId(`${plugin.id}:toggle`);
+    setMessage(null);
+    setError(null);
+    try {
+      for (const targetApp of targetApps(target)) {
+        await setPublishedPartnerPluginEnabled(targetApp, plugin.id, enabled);
+      }
+      await reloadPublished();
+      setMessage(
+        `${plugin.name} ${enabled ? 'enabled' : 'disabled'} for ${targetLabel(target)}.`
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Toggle failed');
     } finally {
       setBusyId(null);
     }
@@ -106,6 +144,7 @@ export function Plugins() {
           });
         }
       }
+      await reloadPublished();
       setMessage(`${filtered.length} plugin(s) published to ${targetLabel(target)}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Publish all failed');
@@ -113,6 +152,10 @@ export function Plugins() {
       setBusyId(null);
     }
   };
+
+  useEffect(() => {
+    void reloadPublished();
+  }, []);
 
   return (
     <div className="page-shell max-w-4xl">
@@ -205,6 +248,10 @@ export function Plugins() {
         <ul className="space-y-2">
           {filtered.map((plugin) => {
             const listing = marketplaceById.get(plugin.id);
+            const targetAppsList = targetApps(target);
+            const targetMeta = targetAppsList.map((appId) => publishedByTarget[appId].get(plugin.id));
+            const isPublished = targetMeta.every(Boolean);
+            const isEnabled = targetMeta.every((m) => (m?.enabled ?? false) === true);
             return (
               <li
                 key={plugin.id}
@@ -249,6 +296,20 @@ export function Plugins() {
                   <Send className="w-4 h-4" />
                   {busyId === plugin.id ? 'Publishing…' : 'Publish'}
                 </button>
+                {isPublished && (
+                  <button
+                    type="button"
+                    disabled={busyId !== null}
+                    onClick={() => void toggleEnabled(plugin, !isEnabled)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium disabled:opacity-50 shrink-0"
+                  >
+                    {busyId === `${plugin.id}:toggle`
+                      ? 'Saving…'
+                      : isEnabled
+                        ? 'Disable'
+                        : 'Enable'}
+                  </button>
+                )}
               </li>
             );
           })}

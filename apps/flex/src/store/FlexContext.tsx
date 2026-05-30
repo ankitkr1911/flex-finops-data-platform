@@ -38,7 +38,6 @@ import {
   canResolveAnomaly,
   rbacDenyMessage,
 } from '../lib/rbac';
-import { formatSlackMessage, simulateSlackNotify } from '../lib/slackNotify';
 import type { SavingsStage } from '../data/insights';
 import type {
   AppId,
@@ -257,14 +256,21 @@ export function FlexProvider({ children }: { children: ReactNode }) {
         const prevRequestIds = new Set(current.dataRequests.map((r) => r.id));
         const merged = mergeApiStateIntoFlex(current, api);
         mergedSnapshot = merged;
-        const newLog = merged.transferLog.find(
+        const newPartnerLogs = merged.transferLog.filter(
           (e) => !prevLogIds.has(e.id) && (e.from === 'eztrac' || e.from === 'dhub-rpt')
         );
+        const newestPartnerLog = newPartnerLogs[0];
         const newRequest = merged.dataRequests.find((r) => !prevRequestIds.has(r.id));
+        const anomalyChanged =
+          JSON.stringify(current.anomalies) !== JSON.stringify(merged.anomalies);
+        const chargebackChanged =
+          JSON.stringify(current.chargeback) !== JSON.stringify(merged.chargeback);
         const allocChanged =
           JSON.stringify(current.resourceAllocations) !==
           JSON.stringify(merged.resourceAllocations);
-        if (newLog?.message) partnerSyncMessage = newLog.message;
+        const workforceChanged =
+          JSON.stringify(current.workforce) !== JSON.stringify(merged.workforce);
+        if (newestPartnerLog?.message) partnerSyncMessage = newestPartnerLog.message;
         else if (newRequest) {
           const label = newRequest.fromApp === 'eztrac' ? 'EzTrac' : 'dhub-rpt';
           if (newRequest.status === 'pending') {
@@ -278,8 +284,17 @@ export function FlexProvider({ children }: { children: ReactNode }) {
           } else {
             partnerSyncMessage = `${label} → Flex: ${newRequest.dataset} (${newRequest.status})`;
           }
+        } else if (anomalyChanged) {
+          partnerSyncMessage = 'Partner anomaly updates synced to Flex';
+        } else if (chargebackChanged) {
+          partnerSyncMessage = 'Partner chargeback updates synced to Flex';
         } else if (allocChanged) {
           partnerSyncMessage = 'dhub-rpt updated resource allocations in Flex';
+        } else if (workforceChanged) {
+          partnerSyncMessage = 'dhub-rpt updated workforce allocations in Flex';
+        }
+        if (newestPartnerLog && !cancelled && stateRef.current.settings.desktopNotifications) {
+          notifyExtension('Flex — Partner update', newestPartnerLog.message);
         }
         return merged;
       });

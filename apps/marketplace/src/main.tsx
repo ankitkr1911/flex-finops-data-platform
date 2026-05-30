@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter, HashRouter } from 'react-router-dom';
 import {
   ExternalLink,
   PackageCheck,
@@ -21,6 +22,9 @@ import {
 import 'partner-ui/styles.css';
 
 type AppId = 'eztrac' | 'rpt';
+type SortMode = 'newest' | 'name';
+const isExtension = Boolean((globalThis as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id);
+const Router = isExtension ? HashRouter : BrowserRouter;
 
 interface PublishedPlugin extends PluginListing {
   targetApp: AppId;
@@ -69,12 +73,22 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function App() {
-  const [selectedApp, setSelectedApp] = useState<AppId>('eztrac');
-  const [tab, setTab] = useState<PartnerTab>('all');
+  const searchParams = new URLSearchParams(window.location.search);
+  const selectedParam = searchParams.get('app');
+  const initialApp: AppId = selectedParam === 'rpt' ? 'rpt' : 'eztrac';
+  const initialTab = searchParams.get('tab') === 'installed' ? 'installed' : 'all';
+  const initialFlow = searchParams.get('flow');
+  const initialSort = searchParams.get('sort');
+
+  const [selectedApp, setSelectedApp] = useState<AppId>(initialApp);
+  const [tab, setTab] = useState<PartnerTab>(initialTab);
   const [published, setPublished] = useState<PublishedPlugin[]>([]);
   const [installed, setInstalled] = useState<string[]>([]);
-  const [search, setSearch] = useState('');
-  const [flowFilter, setFlowFilter] = useState<DataFlowFilter>('all');
+  const [search, setSearch] = useState(searchParams.get('q') ?? '');
+  const [flowFilter, setFlowFilter] = useState<DataFlowFilter>(
+    initialFlow === 'send' || initialFlow === 'read' || initialFlow === 'both' ? initialFlow : 'all'
+  );
+  const [sortMode, setSortMode] = useState<SortMode>(initialSort === 'name' ? 'name' : 'newest');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -102,22 +116,39 @@ function App() {
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    const next = new URLSearchParams();
+    next.set('app', selectedApp);
+    next.set('tab', tab);
+    if (search.trim()) next.set('q', search.trim());
+    if (flowFilter !== 'all') next.set('flow', flowFilter);
+    if (sortMode !== 'newest') next.set('sort', sortMode);
+    const q = next.toString();
+    window.history.replaceState(null, '', q ? `?${q}` : window.location.pathname);
+  }, [selectedApp, tab, search, flowFilter, sortMode]);
+
   const installedSet = useMemo(() => new Set(installed), [installed]);
 
-  const filtered = published.filter((plugin) => {
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      plugin.name.toLowerCase().includes(q) ||
-      plugin.description.toLowerCase().includes(q) ||
-      plugin.pluginId.toLowerCase().includes(q)
-    );
-  });
+    const searched = published.filter((plugin) => {
+      if (!q) return true;
+      return (
+        plugin.name.toLowerCase().includes(q) ||
+        plugin.description.toLowerCase().includes(q) ||
+        plugin.pluginId.toLowerCase().includes(q)
+      );
+    });
+    return searched.sort((a, b) => {
+      if (sortMode === 'name') return a.name.localeCompare(b.name);
+      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    });
+  }, [published, search, sortMode]);
 
   const tabPool =
     tab === 'installed'
       ? filtered.filter((plugin) => installedSet.has(plugin.pluginId))
-      : filtered.filter((plugin) => !installedSet.has(plugin.pluginId));
+      : filtered;
 
   const flowCounts = useMemo(() => {
     const count = (f: DataFlowFilter) => tabPool.filter((p) => matchesDataFlowFilter(p, f)).length;
@@ -204,6 +235,39 @@ function App() {
     }
   };
 
+  const uninstallVisible = async () => {
+    if (visible.length === 0) return;
+    const installedVisible = visible.filter((p) => installedSet.has(p.pluginId));
+    if (installedVisible.length === 0) return;
+    if (
+      !window.confirm(
+        `Remove ${installedVisible.length} plugin(s) from ${selectedMeta.label}? This only affects this app.`
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      let next = installed;
+      for (const plugin of installedVisible) {
+        const result = await readJson<{ installed: string[] }>('/api/v1/partner-marketplace/uninstall', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ app: selectedApp, pluginId: plugin.pluginId }),
+        });
+        next = result.installed;
+      }
+      setInstalled(next);
+      setMessage(`Removed ${installedVisible.length} plugin(s) from ${selectedMeta.label}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Uninstall failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <PartnerShell
       theme="market"
@@ -250,6 +314,15 @@ function App() {
               ))}
             </div>
             <div className="partner-toolbar-row partner-actions">
+              <select
+                className="partner-select"
+                aria-label="Sort plugins"
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+              >
+                <option value="newest" className="partner-select-option">Sort: newest</option>
+                <option value="name" className="partner-select-option">Sort: name</option>
+              </select>
               <button
                 className={`btn btn-ghost${busy ? ' btn-spin-icon' : ''}`}
                 type="button"
@@ -268,6 +341,16 @@ function App() {
                 <PackageCheck size={16} />
                 Install shown ({visible.length})
               </button>
+              {(tab === 'installed' || tab === 'all') && (
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  disabled={busy || visible.filter((p) => installedSet.has(p.pluginId)).length === 0}
+                  onClick={() => void uninstallVisible()}
+                >
+                  Remove shown ({visible.filter((p) => installedSet.has(p.pluginId)).length})
+                </button>
+              )}
             </div>
           </div>
           <DataFlowFilterBar value={flowFilter} onChange={setFlowFilter} counts={flowCounts} />
@@ -322,6 +405,8 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <Router>
+      <App />
+    </Router>
   </React.StrictMode>
 );

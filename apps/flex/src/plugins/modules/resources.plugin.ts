@@ -14,7 +14,7 @@ export const resourcesPlugin = definePlugin({
         name: 'allocation_matrix',
         description: 'Resource pools with allocated vs used',
         schema: ['id', 'name', 'team', 'allocated', 'used', 'unit', 'trend'],
-        direction: 'both',
+        direction: 'bidirectional',
       },
     ],
   },
