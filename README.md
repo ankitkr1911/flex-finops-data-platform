@@ -1,174 +1,160 @@
-# Flex — Cloud FinOps Platform & Browser Extension
+# Flex Access Hub
 
-**Flex** (formerly **FinOps**) is a demo-ready platform for cloud usage, resource allocation, anomaly detection, and **governed data exchange** with:
+Flex Access Hub is a demo FinOps platform for cloud spend, resource allocation, anomaly tracking, governed data exchange, and partner integrations with EzTrac and dhub-rpt. The repo contains the main web app, partner demo apps, a local REST API, a Chrome extension, a VS Code extension, and shared plugin packages.
 
-- **EzTrac** — finance forecasting (desktop)
-- **dhub-rpt** — resource planning
+## Requirements
 
-![Flex](apps/flex/public/flex-icon.svg)
+- Node.js `^20.19.0` or `>=22.12.0`
+- npm, included with Node.js
+- Git, for cloning and normal source control workflows
+- Chrome or Edge, only if you want to load the browser extension
+- PowerShell, only for the optional Windows port helper scripts
+- Bash, only for the optional VSIX packaging script
 
-## Quick start (demo)
+Use npm for this repo. `package-lock.json` is the checked-in lockfile.
 
-### 1. Install dependencies
+## Install
+
+From the repository root:
 
 ```bash
-cd /mnt/c/Users/razza/Downloads/test/test
 npm install
 ```
 
-### 2. Run Flex host app (development)
+If you are already in this checkout:
 
 ```bash
-npm run dev
+cd /mnt/c/Users/razza/Downloads/flex-access-hub
+npm install
 ```
 
-Open http://localhost:5173
+## Run The App
 
-### 3. Run partner apps (separate sites)
+### Main Flex app
 
 ```bash
-npm run api          # http://localhost:3847 (required for cross-port plugin calls)
-npm run dev:eztrac   # http://localhost:5174
-npm run dev:rpt      # http://localhost:5175
+npm run dev:main
 ```
 
-Or run all three:
+Open:
+
+```text
+http://localhost:5173
+```
+
+### Full local demo
+
+Run the API, main app, standalone Flex host, marketplace, EzTrac, and dhub-rpt together:
 
 ```bash
 npm run dev:all
 ```
 
-### 4. Build & load Chrome extension (recommended for demo)
+Local URLs:
+
+| Service | URL | Command |
+|---|---|---|
+| Flex main app | `http://localhost:5173` | `npm run dev:main` |
+| Flex API | `http://localhost:3847` | `npm run dev:api` |
+| EzTrac partner app | `http://localhost:5174` | `npm run dev:eztrac` |
+| dhub-rpt partner app | `http://localhost:5175` | `npm run dev:rpt` |
+| Marketplace app | `http://localhost:5176` | `npm run dev:marketplace` |
+| Standalone Flex host | `http://localhost:5177` | `npm run dev:flex` |
+
+The partner apps use the Flex API on port `3847`, so start `npm run dev:api` when testing cross-app plugin calls.
+
+## Useful Commands
 
 ```bash
-npm run build
+npm run dev:main              # Start the main app on port 5173
+npm run dev:api               # Start the local Flex REST API on port 3847
+npm run dev:all               # Start all local demo services
+npm run build                 # Build the root web app
+npm run build:flex            # Build apps/flex
+npm run build:extension       # Build apps/flex and copy it into the Chrome extension
+npm run lint                  # Run ESLint
+npm run format                # Format the repo with Prettier
+npm run sync:extension-catalog # Regenerate shared extension catalog data
+npm run package:vsix          # Package the VS Code extension
 ```
 
-Then in Chrome:
+On Windows, these helper scripts show or stop common dev ports:
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select the folder: `extensions/chrome/`
-5. Click the Flex toolbar icon → **quick-view popup** (KPIs + shortcuts)
-6. In popup, click **Open command center** → **side panel** with full UI
-
-> Run `node scripts/generate-icons.js` first if icons are missing.
-
-## What's new (v2.0)
-
-| Area | Feature |
-|------|---------|
-| **Finance** | [Chargeback & Showback](/chargeback) — team spend vs budget, tag compliance |
-| **Finance** | Savings lifecycle — identified → approved → implementing → realized |
-| **Finance** | Proof-of-governance audit bundle (JSON + markdown) in Settings |
-| **HR / Planning** | [Workforce × Infrastructure](/workforce) — squad capacity, hiring signals |
-| **Governance** | RBAC-lite (Finance / Platform / Admin / Viewer) |
-| **Governance** | Approval impact preview + field boundary on publish + 8s undo |
-| **DevOps** | Anomaly incident stories (deploy + transfer correlation) |
-| **Extension** | Page Sense chip on AWS/Azure/GCP consoles |
-| **Extension** | Predictive badge (`3·$4K` risk) + Slack approval demo |
-| **AI** | Intent command palette (⌘K) + chat-to-action with undo |
-
-See [HLD](docs/HLD.md) and [LLD](docs/LLD.md) for full architecture.
-
-## Extension highlights (v1.2)
-
-| Feature | Description |
-|---------|-------------|
-| **FinOps Insights** | Savings opportunities ($23K+/mo) + smart recommendations |
-| **Activity & Audit** | Unified timeline of transfers, requests, anomalies |
-| **Global search** | `⇧⌘F` — search initiatives, squads, datasets, anomalies |
-| **Quick actions** | One-click approve, publish, EzTrac sync from dashboard |
-| **Executive export** | Copy/download markdown report (Settings) |
-| **Presentation mode** | Cleaner demo UI with banner |
-| **Context menu** | Right-click → Open Flex / Insights / AI |
-| **Enhanced popup** | Savings banner + Insights/Activity shortcuts |
-
-## Extension highlights (v1.1)
-
-| Feature | Description |
-|---------|-------------|
-| **Quick popup** | Spend, utilization, pending count, recent transfers at a glance |
-| **Toolbar badge** | Shows pending approval count (or `!` for anomalies) |
-| **Side panel** | Full Flex app optimized for narrow width (icon nav) |
-| **⌘K / Ctrl+K** | Command palette — jump to any page or simulate sync |
-| **Keyboard shortcuts** | `Alt+Shift+D` dashboard, `E` exchange, `A` AI (configure in `chrome://extensions/shortcuts`) |
-| **Desktop notifications** | New approval requests and completed transfers |
-| **Live top bar** | Sync indicator, open full tab, command palette |
-| **Welcome guide** | First-run tips inside the side panel |
-
-## Features
-
-| Area | Description |
-|------|-------------|
-| **Dashboard** | KPIs, usage trend, anomalies, pending approvals |
-| **Chargeback** | Team showback, cost centers, tag compliance |
-| **Workforce** | Squad × cloud cost, hiring/reallocate signals |
-| **Cloud Usage** | Category breakdown, forecast vs budget |
-| **Resources** | Allocation vs utilization by team |
-| **Anomalies** | Severity, status, resolve workflow |
-| **Data Exchange** | Approve/reject inbound; publish outbound datasets |
-| **Integrations** | Simulate EzTrac / dhub-rpt sync → new approval requests |
-| **Flex AI** | RAG assistant over Flex + EzTrac + dhub-rpt knowledge |
-| **Settings** | Governance toggles |
-
-## Demo script (30 minutes)
-
-Use the full presenter runbook: [30-Minute Demo Runbook](docs/DEMO_30_MIN.md).
-
-The demo story:
-
-> Flex Access Hub is a plugin-based FinOps command center where core modules, partner apps, and marketplace extensions exchange governed data through one common consume/produce API.
-
-Recommended flow:
-
-| Time | Section | What to prove |
-|------|---------|---------------|
-| 0:00-3:00 | Opening and problem | Custom integrations are risky without governance |
-| 3:00-7:00 | Architecture | Flex has Core, App, Plugins, SDK, marketplace |
-| 7:00-11:00 | Dashboard | Flex is the FinOps command center |
-| 11:00-15:00 | Governance | Partner data lands as governed inbound requests |
-| 15:00-19:00 | Plugin catalog | Core, partner, and extension plugins share one model |
-| 19:00-23:00 | Marketplace | Apps install only the plugin contracts they need |
-| 23:00-26:30 | EzTrac | Finance partner consumes and produces Flex data |
-| 26:30-28:30 | dhub-rpt | Resource planning partner uses a different plugin surface |
-| 28:30-30:00 | Real-world close | Explain production-ready parts and hardening gaps |
-
-Core message to repeat:
-
-- A plugin is not only a UI page.
-- A plugin is a contract: ID, datasets, permissions, consume actions, produce actions, and optional UI.
-- Flex remains the governed system of control even when partner apps participate.
-
-## Project structure
-
+```bash
+npm run ports
+npm run stop:ports
 ```
-apps/flex/                    Flex global web app and plugin host
-apps/eztrac/                  EzTrac standalone app consuming Flex plugins
-apps/rpt/                     RPT standalone app consuming Flex plugins
-apps/flex/src/plugins/        Core, partner, and marketplace plugin runtime
-extensions/chrome/            Chrome MV3 extension source
-extensions/vscode/            VS Code extension source; `.vsix` is build output
-packages/flex-plugin-sdk/     SDK for EzTrac, dhub-rpt, scripts, and tools
-packages/plugin-manifests/    Sample `.flexext.json` plugin packages
-services/flex-api/            Local REST bridge for VS Code/Node demos
+
+## Chrome Extension
+
+Build the extension bundle:
+
+```bash
+npm run build:extension
 ```
+
+Then load it in Chrome or Edge:
+
+1. Open `chrome://extensions`.
+2. Enable Developer mode.
+3. Click Load unpacked.
+4. Select `extensions/chrome/`.
+
+If extension icons are missing, run:
+
+```bash
+node scripts/generate-icons.js
+```
+
+## VS Code Extension
+
+Package a local `.vsix`:
+
+```bash
+npm run package:vsix
+```
+
+The packaged file is written under `extensions/vscode/`. The VS Code extension expects the Flex API at `http://localhost:3847` by default, so run `npm run dev:api` before using its commands.
+
+## Project Structure
+
+```text
+src/                         Root Flex web app routes and shared UI
+apps/flex/                   Standalone Flex host app used by the Chrome extension
+apps/eztrac/                 EzTrac partner demo app
+apps/rpt/                    dhub-rpt partner demo app
+apps/marketplace/            Partner marketplace demo app
+services/flex-api/           Local REST API for plugin and partner demos
+extensions/chrome/           Chrome MV3 extension source
+extensions/vscode/           VS Code extension source
+extensions/shared/           Generated shared extension catalog
+packages/flex-plugin-sdk/    Shared SDK for plugin consume/produce APIs
+packages/plugin-manifests/   Sample installable `.flexext.json` manifests
+packages/partner-ui/         Shared partner app UI package
+docs/                        HLD, LLD, plugin docs, demo scripts, and extension docs
+```
+
+## Configuration And State
+
+- `FLEX_API_PORT` changes the local API port. Default: `3847`.
+- `FLEX_STATE_FILE` changes where the API stores runtime state. Default: `services/flex-api/runtime-state.json`.
+- Browser demo state is stored in local storage, mainly under `flex_state_v2`.
+- All cloud, partner, and marketplace data is mock/demo data.
+
+To reset API state, stop the API server and delete `services/flex-api/runtime-state.json`. To reset browser state, clear local storage for the local app URL.
 
 ## Documentation
 
-- [High-Level Design (HLD)](docs/HLD.md)
-- [Low-Level Design (LLD)](docs/LLD.md)
-- [Plugin API](docs/PLUGINS.md) — core APIs + **installable extensions** (marketplace) and `flex-plugin-sdk`
-- [Repository Organization](docs/REPO_ORGANIZATION.md) — app vs plugin vs extension vs VSIX boundaries
+- [High-Level Design](docs/HLD.md)
+- [Low-Level Design](docs/LLD.md)
+- [Plugin API](docs/PLUGINS.md)
+- [Repository Organization](docs/REPO_ORGANIZATION.md)
+- [VS Code Extension](docs/VSCODE_EXTENSION.md)
+- [30-Minute Demo Runbook](docs/DEMO_30_MIN.md)
 
-## Tech stack
+## Troubleshooting
 
-- React 18, TypeScript, Vite, Tailwind CSS, Recharts
-- Chrome Extension Manifest V3 (side panel)
-
-## Notes
-
-- All cloud and partner data is **dummy/mock** for demonstration.
-- State persists in `localStorage` under key `flex_state_v1`.
-- Production would add REST APIs, OAuth, and live EzTrac/dhub-rpt connectors (see LLD).
+- If a dev server says the port is already in use, stop the existing process or run `npm run stop:ports` on Windows.
+- If partner app API calls fail, confirm `npm run dev:api` is running and `http://localhost:3847/health` returns JSON.
+- If local packages look stale, run `npm install` again from the repository root.
+- If Chrome extension UI changes are not visible, rerun `npm run build:extension` and reload the unpacked extension.

@@ -42,9 +42,9 @@ Flex v2.0 adds **cross-functional capabilities** for Finance, Cloud, DevOps, HR,
 ```mermaid
 flowchart TB
   subgraph Stakeholders
-    FIN[Finance / EzTrac]
+    FIN[Finance / FP&A]
     PLAT[Platform / DevOps]
-    HR[HR / dhub-rpt]
+    HR[HR / Resource Planning]
     GOV[Security / Legal]
   end
 
