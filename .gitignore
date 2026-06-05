@@ -37,3 +37,11 @@ data-platform/etl/output/
 data-platform/backend/node_modules/
 data-platform/backend/dist/
 .env.local
+
+# Data Platform
+data-platform/data/
+data-platform/etl/output/
+data-platform/backend/node_modules/
+data-platform/backend/dist/
+data-platform/backend/.env
+.env.local
