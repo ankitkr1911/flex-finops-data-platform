@@ -30,3 +30,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Data platform
+data-platform/data/
+data-platform/etl/output/
+data-platform/backend/node_modules/
+data-platform/backend/dist/
+.env.local

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { squadWorkforceRows } from "@/lib/mockData";
+import { useWorkforce } from "@/lib/hooks";
 import type { WorkforceSignal } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +27,7 @@ const signalStyle: Record<WorkforceSignal, { cls: string; icon: React.ComponentT
 };
 
 function Workforce() {
+  const { data: squadWorkforceRows = [] } = useWorkforce();
   return (
     <div className="px-6 lg:px-10 py-8 max-w-[1400px] mx-auto space-y-8">
       <PageHeader

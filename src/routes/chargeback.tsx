@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { chargebackRows } from "@/lib/mockData";
+import { useChargeback } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/chargeback")({
 });
 
 function Chargeback() {
+  const { data: chargebackRows = [] } = useChargeback();
   const totalSpend = chargebackRows.reduce((n, r) => n + r.monthlySpend, 0);
   const totalBudget = chargebackRows.reduce((n, r) => n + r.budget, 0);
   const overBudget = chargebackRows.filter((r) => r.monthlySpend > r.budget);

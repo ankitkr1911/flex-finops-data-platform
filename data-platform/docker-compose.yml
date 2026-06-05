@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  # PostgreSQL 16 with TimescaleDB extension
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: flex-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: flex_admin
+      POSTGRES_PASSWORD: flex_local_dev_2026
+      POSTGRES_DB: flex_finops
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flex_admin -d flex_finops"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Redis 7 for caching & pub/sub
+  redis:
+    image: redis:7-alpine
+    container_name: flex-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # LocalStack for S3 simulation (CUR file storage)
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: flex-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: us-east-1
+      EAGER_SERVICE_LOADING: 1
+    volumes:
+      - localstackdata:/var/lib/localstack
+      - ./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init.sh
+
+volumes:
+  pgdata:
+  redisdata:
+  localstackdata:

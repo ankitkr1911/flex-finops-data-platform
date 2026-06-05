@@ -1,0 +1,104 @@
+{
+  "collection": "Flex Data Platform API",
+  "description": "API endpoints for the Flex FinOps Data Platform",
+  "baseUrl": "http://localhost:3001/api/v1",
+  "defaultHeaders": {
+    "x-business-unit-id": "a1b2c3d4-0001-4000-8000-000000000001",
+    "x-user-role": "admin",
+    "x-user-email": "dev@bayer.com"
+  },
+  "requests": [
+    {
+      "name": "Get KPIs",
+      "method": "GET",
+      "url": "/kpis"
+    },
+    {
+      "name": "Get KPI Trend",
+      "method": "GET",
+      "url": "/kpis/trend?months=6"
+    },
+    {
+      "name": "Get Chargeback",
+      "method": "GET",
+      "url": "/chargeback"
+    },
+    {
+      "name": "Get Chargeback Summary",
+      "method": "GET",
+      "url": "/chargeback/summary"
+    },
+    {
+      "name": "Get Anomalies",
+      "method": "GET",
+      "url": "/anomalies"
+    },
+    {
+      "name": "Get Open Anomalies",
+      "method": "GET",
+      "url": "/anomalies/open"
+    },
+    {
+      "name": "Resolve Anomaly",
+      "method": "PATCH",
+      "url": "/anomalies/{id}/status",
+      "body": { "status": "resolved" }
+    },
+    {
+      "name": "Get Savings",
+      "method": "GET",
+      "url": "/savings"
+    },
+    {
+      "name": "Get Savings by Stage",
+      "method": "GET",
+      "url": "/savings?stage=identified"
+    },
+    {
+      "name": "Get Workforce Squads",
+      "method": "GET",
+      "url": "/workforce/squads"
+    },
+    {
+      "name": "Get Datasets",
+      "method": "GET",
+      "url": "/governance/datasets"
+    },
+    {
+      "name": "Get Data Requests",
+      "method": "GET",
+      "url": "/governance/requests"
+    },
+    {
+      "name": "Create Data Request",
+      "method": "POST",
+      "url": "/governance/requests",
+      "body": {
+        "fromApp": "EzTrac",
+        "dataset": "chargeback_summary",
+        "purpose": "Monthly finance reconciliation",
+        "recordCount": 500
+      }
+    },
+    {
+      "name": "Approve Data Request",
+      "method": "PATCH",
+      "url": "/governance/requests/{id}/approve"
+    },
+    {
+      "name": "Get Tag Rules",
+      "method": "GET",
+      "url": "/governance/tag-rules"
+    },
+    {
+      "name": "Get Audit Logs",
+      "method": "GET",
+      "url": "/audit?limit=50"
+    },
+    {
+      "name": "Get Audit Hash Bundle",
+      "method": "GET",
+      "url": "/audit/bundle"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { PageHeader, SectionCard, SeverityDot, timeAgo } from "@/components/Prim
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { store, useStore } from "@/lib/store";
+import { useAnomalies, useUpdateAnomalyStatus } from "@/lib/hooks";
 import type { AnomalyStatus, Severity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -28,7 +29,7 @@ const FILTERS: { label: string; value: AnomalyStatus | "all" }[] = [
 ];
 
 function Anomalies() {
-  const anomalies = useStore((s) => s.anomalies);
+  const { data: anomalies = [] } = useAnomalies();
   const requests = useStore((s) => s.dataRequests);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
 

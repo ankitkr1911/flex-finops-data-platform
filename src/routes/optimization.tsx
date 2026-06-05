@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { store, useStore } from "@/lib/store";
+import { useSavings } from "@/lib/hooks";
 import type { SavingsOpportunity, SavingsStage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -30,7 +31,7 @@ const stageStyle: Record<SavingsStage, string> = {
 };
 
 function Optimization() {
-  const savings = useStore((s) => s.savings);
+  const { data: savings = [] } = useSavings();
   const [q, setQ] = useState("");
 
   const filtered = useMemo(

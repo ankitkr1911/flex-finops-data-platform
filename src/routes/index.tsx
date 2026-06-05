@@ -12,9 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  cloudUsageHistory, forecastData, kpis,
+  cloudUsageHistory, forecastData, kpis as mockKpis,
 } from "@/lib/mockData";
 import { useStore } from "@/lib/store";
+import { useKpis, useKpiTrend, useCloudUsage, useAnomalies, useSavings } from "@/lib/hooks";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -28,8 +29,11 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const anomalies = useStore((s) => s.anomalies);
-  const savings = useStore((s) => s.savings);
+  const { data: kpis = mockKpis } = useKpis();
+  const { data: trendData = forecastData } = useKpiTrend();
+  const { data: usageData = cloudUsageHistory } = useCloudUsage();
+  const { data: anomalies = [] } = useAnomalies();
+  const { data: savings = [] } = useSavings();
   const requests = useStore((s) => s.dataRequests);
 
   const openAnomalies = anomalies.filter((a) => a.status !== "resolved");
@@ -91,7 +95,7 @@ function Dashboard() {
         <SectionCard title="Spend vs forecast vs budget" description="Last 6 months — projection to Jul" className="lg:col-span-2">
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={forecastData} margin={{ left: -10, right: 8, top: 8 }}>
+              <LineChart data={trendData} margin={{ left: -10, right: 8, top: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.30 0.025 250 / 0.4)" />
                 <XAxis dataKey="month" stroke="oklch(0.70 0.025 250)" fontSize={11} />
                 <YAxis stroke="oklch(0.70 0.025 250)" fontSize={11} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
@@ -140,7 +144,7 @@ function Dashboard() {
         <SectionCard title="Cloud usage by service" description="Stacked monthly $K" className="lg:col-span-2">
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={cloudUsageHistory} margin={{ left: -10, right: 8, top: 8 }}>
+              <AreaChart data={usageData} margin={{ left: -10, right: 8, top: 8 }}>
                 <defs>
                   {["compute","storage","network","database"].map((k, i) => (
                     <linearGradient key={k} id={`g-${k}`} x1="0" y1="0" x2="0" y2="1">
