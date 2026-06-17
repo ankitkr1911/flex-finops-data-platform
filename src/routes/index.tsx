@@ -29,11 +29,18 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const { data: kpis = mockKpis } = useKpis();
-  const { data: trendData = forecastData } = useKpiTrend();
-  const { data: usageData = cloudUsageHistory } = useCloudUsage();
-  const { data: anomalies = [] } = useAnomalies();
-  const { data: savings = [] } = useSavings();
+  const kpiQuery = useKpis();
+  const trendQuery = useKpiTrend();
+  const usageQuery = useCloudUsage();
+  const anomalyQuery = useAnomalies();
+  const savingsQuery = useSavings();
+
+  // Use API data; placeholderData (mock) only shows during initial load
+  const kpis = kpiQuery.data ?? mockKpis;
+  const trendData = trendQuery.data ?? forecastData;
+  const usageData = usageQuery.data ?? cloudUsageHistory;
+  const anomalies = anomalyQuery.data ?? [];
+  const savings = savingsQuery.data ?? [];
   const requests = useStore((s) => s.dataRequests);
 
   const openAnomalies = anomalies.filter((a) => a.status !== "resolved");

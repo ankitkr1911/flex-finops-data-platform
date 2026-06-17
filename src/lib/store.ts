@@ -88,7 +88,7 @@ function normalizeRequest(raw: Record<string, unknown>): DataRequest | null {
   };
 }
 
-function mergeById<T extends { id: string; [k: string]: unknown }>(local: T[], incoming: T[]): T[] {
+function mergeById<T extends { id: string }>(local: T[], incoming: T[]): T[] {
   const byId = new Map(local.map((x) => [x.id, x]));
   for (const row of incoming) byId.set(row.id, { ...(byId.get(row.id) ?? {}), ...row } as T);
   return [...byId.values()];

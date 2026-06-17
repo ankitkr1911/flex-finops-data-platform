@@ -37,7 +37,9 @@ import {
 } from "./mockData";
 
 const STALE_TIME = 30_000; // 30s
-const REFETCH_INTERVAL = 60_000; // 60s
+const REFETCH_INTERVAL = 15_000; // 15s — retry quickly so live data appears fast
+const RETRY_COUNT = 10; // Keep retrying if backend isn't up yet
+const RETRY_DELAY = 3_000; // 3s between retries
 
 // ------- KPIs -------
 
@@ -47,6 +49,8 @@ export function useKpis() {
     queryFn: () => fetchKpis(),
     staleTime: STALE_TIME,
     refetchInterval: REFETCH_INTERVAL,
+    retry: RETRY_COUNT,
+    retryDelay: RETRY_DELAY,
     placeholderData: mockKpis,
   });
 }
@@ -58,6 +62,9 @@ export function useKpiTrend() {
     queryKey: ["kpis", "trend"],
     queryFn: () => fetchKpiTrend(),
     staleTime: STALE_TIME,
+    refetchInterval: REFETCH_INTERVAL,
+    retry: RETRY_COUNT,
+    retryDelay: RETRY_DELAY,
     placeholderData: forecastData,
   });
 }
@@ -69,6 +76,9 @@ export function useCloudUsage() {
     queryKey: ["cloudUsage"],
     queryFn: () => fetchCloudUsage(),
     staleTime: STALE_TIME,
+    refetchInterval: REFETCH_INTERVAL,
+    retry: RETRY_COUNT,
+    retryDelay: RETRY_DELAY,
     placeholderData: cloudUsageHistory,
   });
 }
@@ -81,6 +91,8 @@ export function useAnomalies() {
     queryFn: () => fetchAnomalies(),
     staleTime: STALE_TIME,
     refetchInterval: REFETCH_INTERVAL,
+    retry: RETRY_COUNT,
+    retryDelay: RETRY_DELAY,
     placeholderData: initialAnomalies,
   });
 }
@@ -105,6 +117,8 @@ export function useSavings() {
     queryFn: () => fetchSavings(),
     staleTime: STALE_TIME,
     refetchInterval: REFETCH_INTERVAL,
+    retry: RETRY_COUNT,
+    retryDelay: RETRY_DELAY,
     placeholderData: initialSavings,
   });
 }
@@ -128,6 +142,9 @@ export function useChargeback() {
     queryKey: ["chargeback"],
     queryFn: () => fetchChargeback(),
     staleTime: STALE_TIME,
+    refetchInterval: REFETCH_INTERVAL,
+    retry: RETRY_COUNT,
+    retryDelay: RETRY_DELAY,
     placeholderData: chargebackRows,
   });
 }
@@ -139,6 +156,9 @@ export function useWorkforce() {
     queryKey: ["workforce"],
     queryFn: () => fetchWorkforce(),
     staleTime: STALE_TIME,
+    refetchInterval: REFETCH_INTERVAL,
+    retry: RETRY_COUNT,
+    retryDelay: RETRY_DELAY,
     placeholderData: squadWorkforceRows,
   });
 }

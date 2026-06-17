@@ -50,7 +50,14 @@ Complete data engineering layer for the Flex FinOps application.
 ### 1. Start Infrastructure
 
 ```bash
-cd data-platform
+# Navigate to the data-platform folder (where docker-compose.yml lives)
+cd /Users/ankitkumar/Library/CloudStorage/OneDrive-Bayer/Mac_OneDrive/myproject/Flex/data-platform
+
+# 🔁 Every time — launches Docker Desktop app (skip if already running)
+open -a Docker
+
+# 🔁 Every time — starts PostgreSQL, Redis & LocalStack containers in background
+# (instant if containers already exist from a previous run)
 docker compose up -d
 ```
 
@@ -62,8 +69,14 @@ This starts:
 ### 2. Generate Synthetic CUR Data
 
 ```bash
-cd etl
+# Navigate to the ETL folder (where notebooks & scripts live)
+cd /Users/ankitkumar/Library/CloudStorage/OneDrive-Bayer/Mac_OneDrive/myproject/Flex/data-platform/etl
+
+# ⚙️ First time only — installs Python libraries (PySpark, pandas, boto3, etc.)
 pip3 install -r requirements.txt
+
+# ⚙️ First time only — generates fake AWS billing (CUR) CSV files for testing
+# Creates ~54K rows/month × 3 months for 4 business units
 python3 synthetic_cur_generator.py
 ```
 
@@ -73,52 +86,73 @@ Generates 3 months of AWS CUR data for 4 business units (~54K records/month).
 
 Run notebooks in order:
 ```bash
-# Option A: Jupyter
-jupyter notebook
+# Navigate to the ETL folder
+cd /Users/ankitkumar/Library/CloudStorage/OneDrive-Bayer/Mac_OneDrive/myproject/Flex/data-platform/etl
 
-# Option B: Command line (papermill)
+# ⚙️ First time only — installs papermill (runs notebooks from CLI) & ipykernel
 pip3 install papermill ipykernel
+
+# ⚙️ First time only — registers a Jupyter kernel so papermill can find Python
 python3 -m ipykernel install --user --name python3
 
-# Ensure JAVA_HOME is set (required for PySpark)
+# 🔁 Every time — tells PySpark where Java is installed (needed for Spark engine)
+# TIP: add these two lines to ~/.zshrc so you never have to repeat them
 export JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null || echo /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home)
 export PATH="$JAVA_HOME/bin:$PATH"
 
+# ⚙️ First time only — runs 4 ETL notebooks that populate the database
+# Skip these if the database already has data from a previous run
+
+# Notebook 1: Reads raw CUR CSVs → uploads to LocalStack S3 → creates Spark DataFrame
 python3 -m papermill 01_ingest_cur.ipynb output/01_out.ipynb -k python3
+
+# Notebook 2: Aggregates daily costs by service/team, computes month-over-month trends
 python3 -m papermill 02_transform_aggregate.ipynb output/02_out.ipynb -k python3
+
+# Notebook 3: Writes transformed data into PostgreSQL tables (cloud_usage, kpis, etc.)
 python3 -m papermill 03_load_to_postgres.ipynb output/03_out.ipynb -k python3
+
+# Notebook 4: Detects cost anomalies using Z-score & writes to anomalies table
 python3 -m papermill 04_anomaly_detection.ipynb output/04_out.ipynb -k python3
 ```
 
 ### 4. Start Backend API
 
 ```bash
-# From repo root (Flex/)
+# Navigate to the NestJS backend folder
 cd /Users/ankitkumar/Library/CloudStorage/OneDrive-Bayer/Mac_OneDrive/myproject/Flex/data-platform/backend
 
+# ⚙️ First time only — downloads all Node.js dependencies (NestJS, pg, etc.)
 npm install
+
+# ⚙️ First time only — installs TypeScript types for PostgreSQL & the Nest CLI
 npm i --save-dev @types/pg @nestjs/cli
+
+# ⚙️ First time only (or after code changes) — compiles TypeScript → JavaScript in dist/
 npx nest build
 
-# Start (must run from the backend/ directory so .env is found)
+# 🔁 Every time — starts the REST API server on http://localhost:3001
 node dist/main.js
 ```
 
-Or in watch mode (from `data-platform/backend/`):
+Or in watch mode (auto-restarts on code changes):
 ```bash
+# Navigate to the NestJS backend folder
+cd /Users/ankitkumar/Library/CloudStorage/OneDrive-Bayer/Mac_OneDrive/myproject/Flex/data-platform/backend
+
+# 🔁 Every time — starts API with live-reload (rebuilds on save)
 npx nest start --watch
 ```
-
-> **Note:** Always `cd` into `data-platform/backend/` using the full path before running commands.
-> Relative paths like `cd data-platform/backend` only work from the repo root (`Flex/`).
 
 API available at: http://localhost:3001/api/v1
 
 ### 5. Start Frontend
 
 ```bash
-# IMPORTANT: Run from the repo root (Flex/), NOT from data-platform/backend/
+# Navigate to the repo root (where package.json & src/ live for the React app)
 cd /Users/ankitkumar/Library/CloudStorage/OneDrive-Bayer/Mac_OneDrive/myproject/Flex
+
+# 🔁 Every time — starts the Vite dev server (React UI) on http://localhost:8080
 npx vite --port 8080
 ```
 
